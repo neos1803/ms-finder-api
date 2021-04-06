@@ -4,8 +4,9 @@ const router = express.Router();
 const MangaController = require('../controllers/MangaController');
 
 router
-  .get('/', MangaController.index)
-  .post('/', MangaController.search)
-  .get('/:name', MangaController.get)
+  .get('/:name', MangaController.index)
+  .get('/tokopedia/:name', MangaController.getFromOneWeb)
+  .get('/shopee/:name', MangaController.getFromOneWeb)
+  .get('/bukalapak/:name', MangaController.getFromOneWeb)
 
 module.exports = router;
