@@ -9,9 +9,9 @@ class MangaController {
   static async index(req, res) {
     try {
       const urls = [
-        `https://www.tokopedia.com/search?navsource=home&sc=3309&source=universe&st=product&q=${req.params.name.replace(/\s/g, '%20')}`,
+        // `https://www.tokopedia.com/search?navsource=home&sc=3309&source=universe&st=product&q=${req.params.name.replace(/\s/g, '%20')}`,
         `https://www.bukalapak.com/c/hobi-koleksi/buku/komik?search%5Bkeywords%5D=${req.params.name.replace(/\s/g, '%20')}`,
-        `https://shopee.co.id/search?facet=16895%2C16893&keyword=${req.params.name.replace(/\s/g, '%20')}`
+        // `https://shopee.co.id/search?facet=16895%2C16893&keyword=${req.params.name.replace(/\s/g, '%20')}`
       ];
   
       const browser =  await puppeteer.launch({
@@ -124,6 +124,42 @@ class MangaController {
 
         if (page.url().includes("bukalapak")) {
           let bukalapak = [];
+          const selector = "div[class='bl-flex-item mb-8']";
+          await page.waitForTimeout(1000);
+          await page.evaluate(async (sel) => {
+            for (const search of Array.from(document.querySelectorAll(sel))) {
+              search.scrollIntoView();
+              await new Promise((resolve) => { setTimeout(resolve, 2000) })
+            }
+          }, selector)
+          await page.waitForTimeout(1000);
+          const content = await page.content();
+          const $ = cheerio.load(content);
+          const products = $("div[class='bl-flex-item mb-8'] > div[class='bl-product-card te-product-card'] > div[class='bl-product-card__wrapper']");
+          products.each((_, e) => {
+            const find = {
+              title_or_link: ".bl-product-card__description > .bl-product-card__description-name > p > a",
+              price: ".bl-product-card__description-price > p",
+              location: ".bl-product-card__description-store > span[class='mr-4 bl-product-card__location bl-text bl-text--body-small bl-text--subdued bl-text--ellipsis__1']",
+              store_name: ".bl-product-card__description-store > span[class='bl-product-card__store bl-text bl-text--body-small bl-text--subdued bl-text--ellipsis__1']",
+              // link: ".bl-product-card__description > p > a"
+            };
+            let content_obj = {};
+            content_obj.product = Object({
+              name: scrapeTextOrAttr($, e, find.title_or_link, false).trim(),
+              price: scrapeTextOrAttr($,e, find.price, false).trim()
+            });
+
+            content_obj.link = scrapeTextOrAttr($, e, find.title_or_link, true, "href");
+
+            content_obj.store = Object({
+              name: scrapeTextOrAttr($, e, find.store_name, false).trim(),
+              location: scrapeTextOrAttr($, e, find.location, false).trim()
+            });
+
+            bukalapak.push(content_obj);
+
+          })
           obj.bukalapak = bukalapak;
         }
         
