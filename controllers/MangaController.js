@@ -2,6 +2,7 @@ const axios = require('axios').default;
 const cheerio = require('cheerio');
 const puppeteer = require('puppeteer');
 const responses = require('../helpers/responses');
+const scrapeTextOrAttr = require('../helpers/scrape');
 
 class MangaController {
 
@@ -24,9 +25,6 @@ class MangaController {
       });
   
       const obj = {};
-      // urls.forEach(async (i, e) => {
-        
-      // })
       for (let i = 0; i < urls.length; i++) {
         await page.setUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.75 Safari/537.36");
         await page.goto(urls[i], {
@@ -35,10 +33,10 @@ class MangaController {
   
         await page.evaluate('window.scrollTo(0,99999)');
         await page.waitForTimeout(1000);
-        const content = await page.content();
-        const $ = cheerio.load(content);
         
         if (page.url().includes("tokopedia")) {
+          const content = await page.content();
+          const $ = cheerio.load(content);
           let tokopedia = [];
           const product = $(".css-1g20a2m");
           product.each((_, e) => {
@@ -91,6 +89,36 @@ class MangaController {
 
         if (page.url().includes("shopee")) {
           let shopee = [];
+          const selector = "div[class='col-xs-2-4 shopee-search-item-result__item']";
+          await page.waitForTimeout(1000);
+          await page.evaluate(async (sel) => {
+            for (const search of Array.from(document.querySelectorAll(sel))) {
+              search.scrollIntoView();
+              await new Promise((resolve) => { setTimeout(resolve, 2000) })
+            }
+          }, selector)
+          await page.waitForTimeout(1000);
+          const content = await page.content();
+          const $ = cheerio.load(content);
+          const products = $("div[class='col-xs-2-4 shopee-search-item-result__item']");
+          products.each((_, e) => {
+            const find = {
+              title: "a > ._35LNwy > div[class='fBhek2 _2xt0JJ'] > ._1ObP5d > ._1nHzH4 > .PFM7lj > div[class='yQmmFK _1POlWt _36CEnF']",
+              price: "a > ._35LNwy > div[class='fBhek2 _2xt0JJ'] > ._1ObP5d > ._32hnQt > div[class='WTFwws _1lK1eK _5W0f35'] > span[class='_29R_un']",
+              location: "a > ._35LNwy > div[class='fBhek2 _2xt0JJ'] > ._1ObP5d > ._2CWevj",
+              link: "a"
+            };
+            let content_obj = {};
+            content_obj.product = Object({
+              name: scrapeTextOrAttr($, e, find.title, false),
+              price: scrapeTextOrAttr($, e, find.price, false),
+            })
+
+            content_obj.link = `shopee.co.id${scrapeTextOrAttr($, e, find.link, true, "href")}`;
+
+            content_obj.store = scrapeTextOrAttr($, e, find.location, false);
+            shopee.push(content_obj);
+          });
           obj.shopee = shopee;
         }
 
