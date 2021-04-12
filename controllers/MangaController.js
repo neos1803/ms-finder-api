@@ -2,8 +2,10 @@ const axios = require('axios').default;
 const cheerio = require('cheerio');
 const puppeteer = require('puppeteer');
 const responses = require('../helpers/responses');
-const scrapeTextOrAttr = require('../helpers/scrape');
+const Scrape = require('../helpers/scrape');
 const urls_object = require('../helpers/urls');
+const scrapeTextOrAttr = Scrape.scrapeTextOrAttr;
+const autoScroll = Scrape.autoScroll;
 
 class MangaController {
 
@@ -200,19 +202,27 @@ class MangaController {
         width: 1366,
         height: 768
       });
-      
+
+      const query_page = req.query.page && req.query.page > 0? parseInt(req.query.page): 1;
+      let target_url = "";
+      if (req.params.url == "tokopedia") target_url = urls_object[url] + req.query.name.replace(/\s/g, '%20') + `&page=${query_page}`;
+
       await page.setUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.75 Safari/537.36");
-      await page.goto(urls_object[url] + req.query.name.replace(/\s/g, '%20'), {
+      await page.goto(target_url, {
         waitUntil: 'domcontentloaded'
       });
-      await page.evaluate('window.scrollTo(0,99999)');
+      await autoScroll(page);
       await page.waitForTimeout(1000);
+      await page.screenshot({ path: './any.png', fullPage: true });
   
       const obj = {};
       if (req.params.url == "tokopedia") {
         const content = await page.content();
         const $ = cheerio.load(content);
         let tokopedia = [];
+        const items_info = $(".css-rjanld > .css-83m8v3 > .css-8j9pkz").text().trim().split(" ");
+        const total_items = items_info[7].replace(".", "");
+        const total_pages = Math.ceil(items_info[7].replace(".", "")/(items_info[3] - items_info[1] + 1));
         const products = $(".css-1g20a2m");
         products.each((_, e) => {
           const find = {
@@ -235,8 +245,14 @@ class MangaController {
             location: $(e).find(find.location).map((_, v) => $(v).text().trim()).get(0)
           })
           tokopedia.push(content_obj);
-        })
-        obj.tokopedia = tokopedia;
+        });
+
+        obj.tokopedia = {
+          total_pages,
+          total_items,
+          current_items: tokopedia.length,
+          tokopedia
+        };
 
         return res.status(200).json(responses("200", "Success", obj));
       }
