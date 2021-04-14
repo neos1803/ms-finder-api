@@ -205,7 +205,9 @@ class MangaController {
 
       const query_page = req.query.page && req.query.page > 0? parseInt(req.query.page): 1;
       let target_url = "";
-      if (req.params.url == "tokopedia") target_url = urls_object[url] + req.query.name.replace(/\s/g, '%20') + `&page=${query_page}`;
+      if (req.params.url.toLowerCase() == "tokopedia") target_url = urls_object[url] + req.query.name.replace(/\s/g, '%20') + `&page=${query_page}`;
+      if (req.params.url.toLowerCase() == "shopee") target_url = urls_object[url] + req.query.name.replace(/\s/g, '%20') + `&page=${query_page - 1}`;
+      if (req.params.url.toLowerCase() == "bukalapak") target_url = urls_object[url] + req.query.name.replace(/\s/g, '%20') + `&page=${query_page}`;
 
       await page.setUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.75 Safari/537.36");
       await page.goto(target_url, {
@@ -213,7 +215,6 @@ class MangaController {
       });
       await autoScroll(page);
       await page.waitForTimeout(1000);
-      await page.screenshot({ path: './any.png', fullPage: true });
   
       const obj = {};
       if (req.params.url == "tokopedia") {
@@ -270,6 +271,7 @@ class MangaController {
         await page.waitForTimeout(1000);
         const content = await page.content();
         const $ = cheerio.load(content);
+        const total_pages = $(".shopee-search-item-result > .shopee-sort-bar > .shopee-mini-page-controller > .shopee-mini-page-controller__state > span[class='shopee-mini-page-controller__total']").text();
         const products = $("div[class='col-xs-2-4 shopee-search-item-result__item']");
         products.each((_, e) => {
           const find = {
@@ -289,7 +291,12 @@ class MangaController {
           content_obj.store = scrapeTextOrAttr($, e, find.location, false);
           shopee.push(content_obj);
         });
-        obj.shopee = shopee;
+        obj.shopee = {
+          total_pages,
+          total_items: "-",
+          current_items: shopee.length,
+          shopee
+        }
 
         return res.status(200).json(responses("200", "Success", obj));
       }
@@ -307,6 +314,8 @@ class MangaController {
         await page.waitForTimeout(1000);
         const content = await page.content();
         const $ = cheerio.load(content);
+        const items_info = $("p[class='te-total-products bl-text bl-text--body-small bl-text--subdued']").text().trim().split(" ");
+        const total_items = items_info[0].replace(".", "");
         const products = $("div[class='bl-flex-item mb-8'] > div[class='bl-product-card te-product-card'] > div[class='bl-product-card__wrapper']");
         products.each((_, e) => {
           const find = {
@@ -332,7 +341,13 @@ class MangaController {
           bukalapak.push(content_obj);
 
         })
-        obj.bukalapak = bukalapak;
+        const total_pages = Math.ceil(total_items/bukalapak.length);
+        obj.bukalapak = {
+          total_pages,
+          total_items,
+          current_items: bukalapak.length,
+          bukalapak
+        };
 
         return res.status(200).json(responses("200", "Success", obj));
       }
