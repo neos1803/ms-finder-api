@@ -222,6 +222,9 @@ class MangaController {
         const $ = cheerio.load(content);
         let tokopedia = [];
         const items_info = $(".css-rjanld > .css-83m8v3 > .css-8j9pkz").text().trim().split(" ");
+        if (!items_info) {
+          throw new Error("Halaman tidak dapat ditemukan");
+        }
         const total_items = items_info[7].replace(".", "");
         const total_pages = Math.ceil(items_info[7].replace(".", "")/(items_info[3] - items_info[1] + 1));
         const products = $(".css-1g20a2m");
@@ -272,6 +275,7 @@ class MangaController {
         const content = await page.content();
         const $ = cheerio.load(content);
         const total_pages = $(".shopee-search-item-result > .shopee-sort-bar > .shopee-mini-page-controller > .shopee-mini-page-controller__state > span[class='shopee-mini-page-controller__total']").text();
+        if(!total_pages) throw new Error("Halaman tidak dapat ditemukan");
         const products = $("div[class='col-xs-2-4 shopee-search-item-result__item']");
         products.each((_, e) => {
           const find = {
@@ -304,14 +308,16 @@ class MangaController {
       if (req.params.url = "bukalapak") {
         let bukalapak = [];
         const selector = "div[class='bl-flex-item mb-8']";
-        await page.waitForTimeout(1000);
-        await page.evaluate(async (sel) => {
-          for (const search of Array.from(document.querySelectorAll(sel))) {
-            search.scrollIntoView();
-            await new Promise((resolve) => { setTimeout(resolve, 2000) })
-          }
-        }, selector)
-        await page.waitForTimeout(1000);
+        if (query_page <= 1) {
+          await page.waitForTimeout(1000);
+          await page.evaluate(async (sel) => {
+            for (const search of Array.from(document.querySelectorAll(sel))) {
+              search.scrollIntoView();
+              await new Promise((resolve) => { setTimeout(resolve, 2000) })
+            }
+          }, selector)
+          await page.waitForTimeout(1000);
+        }
         const content = await page.content();
         const $ = cheerio.load(content);
         const items_info = $("p[class='te-total-products bl-text bl-text--body-small bl-text--subdued']").text().trim().split(" ");
@@ -340,8 +346,10 @@ class MangaController {
 
           bukalapak.push(content_obj);
 
-        })
-        const total_pages = Math.ceil(total_items/bukalapak.length);
+        });
+        const first_page_items = query_page <= 1? bukalapak.length: 28;
+        const total_pages = Math.ceil((total_items - first_page_items)/15);
+        if (query_page > total_pages) throw new Error("Halaman tidak dapat ditemukan");
         obj.bukalapak = {
           total_pages,
           total_items,
