@@ -2,6 +2,7 @@ require('dotenv').config();
 
 const express = require('express');
 const mangaRoute = require('./routes/manga');
+const malRoute = require('./routes/mal');
 const swaggerJSDoc = require("swagger-jsdoc");
 const swaggerUi = require("swagger-ui-express");
 
@@ -37,7 +38,8 @@ const port = process.env.PORT | 3000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use('/api/v1/', mangaRoute);
+app.use('/api/v1/manga', mangaRoute);
+app.use('/api/v1/mal', malRoute);
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   explorer: true
 }));
